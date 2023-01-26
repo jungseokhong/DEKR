@@ -15,6 +15,7 @@ sys.path.append("../lib")
 import cv2
 import numpy as np
 from PIL import Image
+import math
 
 import torch
 import torch.nn.parallel
@@ -121,8 +122,8 @@ def get_pose_estimation_prediction(cfg, model, image, vis_thre, transforms):
 
 def prepare_output_dirs(prefix='/output/'):
     pose_dir = os.path.join(prefix, "pose")
-    if os.path.exists(pose_dir) and os.path.isdir(pose_dir):
-        shutil.rmtree(pose_dir)
+    # if os.path.exists(pose_dir) and os.path.isdir(pose_dir):
+    #     shutil.rmtree(pose_dir)
     os.makedirs(pose_dir, exist_ok=True)
     return pose_dir
 
@@ -149,6 +150,8 @@ def parse_args():
     args.prevModelDir = ''
     return args
 
+def dist(p,q):
+    return math.sqrt( (p[0]-q[0])**2 + (p[1]-q[1])**2 )
 
 
 def main():
@@ -198,15 +201,18 @@ def main():
 
     count = 0
 
-    folders = ['JH_pose2_water', 'JS_pose2_water', 'JZ_pose1_water', 
-            'CE_pose1_water', 'SS_pose1_water', 'JH_pose1_water', 
-            'CK_pose1_water', 'PP_pose1_water', 'DK_nc1_water', 
-            'CE_pose2_water', 'JS_pose1_water', 'MF_pose1_water', 
-            'CO_pose2_water', 'CO_pose1_water', 'DK_pose1_water', 'CE_pose3_water']
+    # folders = ['JH_pose2_water', 'JS_pose2_water', 'JZ_pose1_water', 
+    #         'CE_pose1_water', 'SS_pose1_water', 'JH_pose1_water', 
+    #         'CK_pose1_water', 'PP_pose1_water', 'DK_nc1_water', 
+    #         'CE_pose2_water', 'JS_pose1_water', 'MF_pose1_water', 
+    #         'CO_pose2_water', 'CO_pose1_water', 'DK_pose1_water', 'CE_pose3_water']
+
+    folders = ['DK_pose1_water']
 
     # Load images
     # src_folder = args.srcfolder
-    for src_folder in folders:
+    for folder in folders:
+        src_folder = os.path.join('new_data_011423',folder)
         for filename in os.listdir(src_folder):
             total_now = time.time()
             img = cv2.imread(os.path.join(src_folder,filename))
@@ -227,26 +233,112 @@ def main():
                 if len(pose_preds) == 0:
                     count += 1
                     continue
-                print("Find person pose in: {} sec".format(then - now))
-                new_csv_row = []
+                print("Find person pose in: {} sec".format(then - now))                    
+
+                new_csv_coord_row = []
+                new_csv_row = [filename[:-4], frame_width, frame_height]
                 for coords in pose_preds:
                     # Draw each point on image
-                    for coord in coords:
+                    [nose, left_eye, right_eye, left_ear, right_ear,
+                        left_shoulder, right_shoulder, left_elbow, right_elbow,
+                        left_wrist, right_wrist, left_hip, right_hip,
+                        left_knee, right_knee, left_ankle, right_ankle]=coords
+
+                    lh_lk_dist = dist(left_hip, left_knee)
+                    rh_rk_dist = dist(right_hip, right_knee)
+                    h_k_condition = (lh_lk_dist/rh_rk_dist < 1.2) and (lh_lk_dist/rh_rk_dist > 0.8)
+                    lw_le_dist = dist(left_wrist, left_elbow)
+                    rw_re_dist = dist(right_wrist, right_elbow)
+                    le_ls_dist = dist(left_elbow, left_shoulder)
+                    re_rs_dist = dist(right_elbow, right_shoulder)
+                    k_x_condition = abs(left_knee[0]-right_knee[0]) > 20
+                    w_e_condition = (lw_le_dist/rw_re_dist < 1.3) and (lw_le_dist/rw_re_dist > 0.7)
+                    arm_condition = (lw_le_dist/le_ls_dist < 1.3) and (lw_le_dist/le_ls_dist > 0.7) and (rw_re_dist/re_rs_dist < 1.3) and (rw_re_dist/re_rs_dist > 0.7)
+                    
+                    ls_rs_dist = dist(left_shoulder, right_shoulder)
+                    ls_lh_dist = dist(left_shoulder, left_hip)
+                    rs_rh_dist = dist(right_shoulder, right_hip)
+                    avg_s_h_dist = (ls_lh_dist + rs_rh_dist) / 2
+                    s_h_ratio = avg_s_h_dist / ls_rs_dist
+                    shoulder_condition = (s_h_ratio >= 1.3) #and (s_h_ratio <= 1.6)
+                    sh_hk_ratio_condition = (ls_lh_dist / lh_lk_dist) < 2 and (rs_rh_dist / rh_rk_dist) <2
+
+                    if ((left_shoulder[1] < left_hip[1]) and (left_hip[1] < left_knee[1]) and
+                                    abs(left_hip[0]-right_hip[0]) > 8 and h_k_condition and 
+                                    w_e_condition and arm_condition and k_x_condition and 
+                                    shoulder_condition and sh_hk_ratio_condition                    
+                                    ):
+                        correctness = True
+
+
+                    for coord_idx, coord in enumerate(coords):
+                        # print(COCO_KEYPOINT_INDEXES[coord_idx], coord_idx)
                         x_coord, y_coord = int(coord[0]), int(coord[1])
-                        cv2.circle(image_debug, (x_coord, y_coord), 4, (255, 0, 0), 2)
-                        new_csv_row.extend([x_coord, y_coord])
+                        cv2.circle(image_debug, (x_coord, y_coord), 4, (0, 255, 0), 2)
+                        cv2.putText(image_debug, COCO_KEYPOINT_INDEXES[coord_idx], (x_coord+10, y_coord+10), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.8, (0, 0, 255), 2, cv2.LINE_AA)
+                        new_csv_coord_row.extend([x_coord, y_coord])
+                        
+                    jds_list = []
+                    # JOINT CONNECTIONS
+                    if left_shoulder.any() and right_shoulder.any(): #jd1
+                        cv2.line(image_debug, (left_shoulder[0], left_shoulder[1]), (right_shoulder[0], right_shoulder[1]), (100, 171, 231), 2)
+                        jds_list.append( dist(left_shoulder, right_shoulder) )
+                    if left_shoulder.any() and left_hip.any(): #jd2
+                        cv2.line(image_debug, (left_shoulder[0], left_shoulder[1]), (left_hip[0], left_hip[1]), (100, 171, 231), 2)
+                        jds_list.append( dist(left_shoulder, left_hip) )
+                    if left_shoulder.any() and left_elbow.any(): #jd3
+                        cv2.line(image_debug, (left_shoulder[0], left_shoulder[1]), (left_elbow[0], left_elbow[1]), (100, 171, 231), 2)
+                        jds_list.append( dist(left_shoulder, left_elbow) )
+                    if left_elbow.any() and left_wrist.any(): #jd4
+                        cv2.line(image_debug, (left_elbow[0], left_elbow[1]), (left_wrist[0], left_wrist[1]), (100, 171, 231), 2)
+                        jds_list.append( dist(left_elbow, left_wrist) )
+                    if right_hip.any() and right_shoulder.any(): #jd5
+                        cv2.line(image_debug, (right_shoulder[0], right_shoulder[1]), (right_hip[0], right_hip[1]), (100, 171, 231), 2)
+                        jds_list.append( dist(right_hip, right_shoulder) )
+                    if right_elbow.any() and right_shoulder.any(): #jd6
+                        cv2.line(image_debug, (right_shoulder[0], right_shoulder[1]), (right_elbow[0], right_elbow[1]), (100, 171, 231), 2)
+                        jds_list.append( dist(right_elbow, right_shoulder) )
+                    if right_wrist.any() and right_elbow.any(): #jd7
+                        cv2.line(image_debug, (right_elbow[0], right_elbow[1]), (right_wrist[0], right_wrist[1]), (100, 171, 231), 2)
+                        jds_list.append( dist(right_wrist, right_elbow) )
+                    if right_hip.any() and left_hip.any():   #jd8
+                        cv2.line(image_debug, (left_hip[0], left_hip[1]), (right_hip[0], right_hip[1]), (100, 171, 231), 2)
+                        jds_list.append( dist(left_hip, right_hip) )
+                    if left_hip.any() and left_knee.any(): #jd9
+                        cv2.line(image_debug, (left_hip[0], left_hip[1]), (left_knee[0], left_knee[1]), (100, 171, 231), 2)
+                        jds_list.append( dist(left_hip, left_knee) )
+                    if right_hip.any() and right_knee.any():  #jd10
+                        cv2.line(image_debug, (right_hip[0], right_hip[1]), (right_knee[0], right_knee[1]), (100, 171, 231), 2)
+                        jds_list.append( dist(right_hip, right_knee) )
+
+                    new_csv_row = new_csv_row + jds_list + new_csv_coord_row
 
                 total_then = time.time()
                 text = "{:03.2f} sec".format(total_then - total_now)
                 cv2.putText(image_debug, text, (100, 50), cv2.FONT_HERSHEY_SIMPLEX,
                             1, (0, 0, 255), 2, cv2.LINE_AA)
+                if correctness:
+                    csv_output_rows.append(new_csv_row)
+                # save output with each folder
 
-                csv_output_rows.append(new_csv_row)
-                img_file = os.path.join(pose_dir, 'pose_{:08d}.jpg'.format(count))
+                isExist = os.path.exists(os.path.join(pose_dir, folder+'_processed'))
+                if not isExist:
+                    # Create a new directory because it does not exist
+                    os.makedirs(os.path.join(pose_dir, folder+'_processed'))
+
+                isExist2 = os.path.exists(os.path.join(pose_dir, folder+'_failed'))
+                if not isExist2:
+                    # Create a new directory because it does not exist
+                    os.makedirs(os.path.join(pose_dir, folder+'_failed'))
+                if correctness:
+                    img_file = os.path.join(pose_dir, folder+'_processed', 'processed_'+filename)
+                else:
+                    img_file = os.path.join(pose_dir, folder+'_failed', 'failed_'+filename)
                 cv2.imwrite(img_file, image_debug)
 
             # write csv
-            csv_headers = ['frame']
+            csv_headers = ['filename', 'w','h', 'jd1', 'jd2','jd3','jd4','jd5','jd6','jd7','jd8','jd9','jd10']
             if cfg.DATASET.DATASET_TEST == 'coco':
                 for keypoint in COCO_KEYPOINT_INDEXES.values():
                     csv_headers.extend([keypoint+'_x', keypoint+'_y'])
@@ -256,7 +348,7 @@ def main():
             else:
                 raise ValueError('Please implement keypoint_index for new dataset: %s.' % cfg.DATASET.DATASET_TEST)
 
-            csv_output_filename = os.path.join(args.outputDir, 'pose-data.csv')
+            csv_output_filename = os.path.join(pose_dir, folder+'_processed'+'.csv')
             with open(csv_output_filename, 'w', newline='') as csvfile:
                 csvwriter = csv.writer(csvfile)
                 csvwriter.writerow(csv_headers)
