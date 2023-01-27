@@ -207,11 +207,25 @@ def main():
     #         'CE_pose2_water', 'JS_pose1_water', 'MF_pose1_water', 
     #         'CO_pose2_water', 'CO_pose1_water', 'DK_pose1_water', 'CE_pose3_water']
 
-    folders = ['DK_pose1_water']
+    # folders = ['DK_pose1_water_cropped']
+
+    folders = ['CE_pose1_water', 'CE_pose2_water_cropped', 'CE_pose3_water_cropped', 
+            'JH_pose1_water_cropped', 'JH_pose2_water', 
+            'DK_nc1_water_cropped',
+            'CO_pose1_water', 'CO_pose2_water',  
+            'SS_pose1_water',
+            'CK_pose1_water',
+            'JS_pose1_water', 'JS_pose2_water',
+            'JZ_pose1_water',
+            'MF_pose1_water_cropped',
+            'PP_pose1_water'
+            ]
+
 
     # Load images
     # src_folder = args.srcfolder
     for folder in folders:
+        print(folder)
         src_folder = os.path.join('new_data_011423',folder)
         for filename in os.listdir(src_folder):
             total_now = time.time()
@@ -251,9 +265,9 @@ def main():
                     rw_re_dist = dist(right_wrist, right_elbow)
                     le_ls_dist = dist(left_elbow, left_shoulder)
                     re_rs_dist = dist(right_elbow, right_shoulder)
-                    k_x_condition = abs(left_knee[0]-right_knee[0]) > 20
-                    w_e_condition = (lw_le_dist/rw_re_dist < 1.3) and (lw_le_dist/rw_re_dist > 0.7)
-                    arm_condition = (lw_le_dist/le_ls_dist < 1.3) and (lw_le_dist/le_ls_dist > 0.7) and (rw_re_dist/re_rs_dist < 1.3) and (rw_re_dist/re_rs_dist > 0.7)
+                    k_x_condition = abs(left_knee[0]-right_knee[0]) > 10
+                    w_e_condition = (lw_le_dist/rw_re_dist < 1.3) and (lw_le_dist/rw_re_dist > 0.6)
+                    arm_condition = (lw_le_dist/le_ls_dist < 1.3) and (lw_le_dist/le_ls_dist > 0.6) and (rw_re_dist/re_rs_dist < 1.3) and (rw_re_dist/re_rs_dist > 0.6)
                     
                     ls_rs_dist = dist(left_shoulder, right_shoulder)
                     ls_lh_dist = dist(left_shoulder, left_hip)
@@ -262,13 +276,29 @@ def main():
                     s_h_ratio = avg_s_h_dist / ls_rs_dist
                     shoulder_condition = (s_h_ratio >= 1.3) #and (s_h_ratio <= 1.6)
                     sh_hk_ratio_condition = (ls_lh_dist / lh_lk_dist) < 2 and (rs_rh_dist / rh_rk_dist) <2
+                    larm_sh_ratio_condition = (ls_lh_dist/lw_le_dist) < 3 and (rs_rh_dist/rw_re_dist) < 3
+                    uarm_sh_ratio_condition = (ls_lh_dist/le_ls_dist) < 3 and (rs_rh_dist/re_rs_dist) < 3
+                    lh_rh_dist = dist(left_hip, right_hip)
+                    should_hip_ratio_condition = (ls_rs_dist / lh_rh_dist) < 1.8 and (ls_rs_dist / lh_rh_dist) > 0.8
 
+
+                    # if filename[:-4] == 'img1311' or filename[:-4] == 'img1207':
+                    #     print(filename)
+                    #     print([left_shoulder[1] < left_hip[1], left_hip[1] < left_knee[1], 
+                    #                     lh_rh_dist > 10 > 10, h_k_condition, 
+                    #                     w_e_condition, arm_condition, k_x_condition, 
+                    #                     shoulder_condition, sh_hk_ratio_condition, (ls_rs_dist > 10),
+                    #                     larm_sh_ratio_condition, uarm_sh_ratio_condition])
                     if ((left_shoulder[1] < left_hip[1]) and (left_hip[1] < left_knee[1]) and
-                                    abs(left_hip[0]-right_hip[0]) > 8 and h_k_condition and 
+                                    lh_rh_dist > 10 and h_k_condition and 
                                     w_e_condition and arm_condition and k_x_condition and 
-                                    shoulder_condition and sh_hk_ratio_condition                    
+                                    shoulder_condition and sh_hk_ratio_condition and (ls_rs_dist > 10) and
+                                    larm_sh_ratio_condition and uarm_sh_ratio_condition
                                     ):
+                        
                         correctness = True
+                    else:
+                        correctness = False
 
 
                     for coord_idx, coord in enumerate(coords):
