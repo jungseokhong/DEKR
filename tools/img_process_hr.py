@@ -121,7 +121,7 @@ def get_pose_estimation_prediction(cfg, model, image, vis_thre, transforms):
 
 
 def prepare_output_dirs(prefix='/output/'):
-    pose_dir = os.path.join(prefix, "pose")
+    pose_dir = os.path.join(prefix, "pose1")
     # if os.path.exists(pose_dir) and os.path.isdir(pose_dir):
     #     shutil.rmtree(pose_dir)
     os.makedirs(pose_dir, exist_ok=True)
@@ -209,24 +209,27 @@ def main():
 
     # folders = ['DK_pose1_water_cropped']
 
-    folders = ['CE_pose1_water', 'CE_pose2_water_cropped', 'CE_pose3_water_cropped', 
-            'JH_pose1_water_cropped', 'JH_pose2_water', 
-            'DK_nc1_water_cropped',
-            'CO_pose1_water', 'CO_pose2_water',  
-            'SS_pose1_water',
-            'CK_pose1_water',
-            'JS_pose1_water', 'JS_pose2_water',
-            'JZ_pose1_water',
-            'MF_pose1_water_cropped',
-            'PP_pose1_water'
-            ]
+    # folders = ['CE_pose2_water_cropped', 'CE_pose3_water_cropped', 
+    #         'JH_pose1_water_cropped', 'JH_pose2_water', 
+    #         'DK_nc1_water_cropped',
+    #         'CO_pose1_water', 'CO_pose2_water',  
+    #         'SS_pose1_water',
+    #         'CK_pose1_water',
+    #         'JS_pose1_water', 'JS_pose2_water',
+    #         'JZ_pose1_water',
+    #         'MF_pose1_water_cropped',
+    #         'PP_pose1_water'
+    #         ]
 
+    folders = ['chelsey1_bag', 'demetri1_bag', 'demetri2_bag']
 
     # Load images
     # src_folder = args.srcfolder
     for folder in folders:
+        csv_output_rows = []
         print(folder)
-        src_folder = os.path.join('new_data_011423',folder)
+        src_folder = os.path.join('test_data',folder)
+        # src_folder = os.path.join('new_data_011423',folder)
         for filename in os.listdir(src_folder):
             total_now = time.time()
             img = cv2.imread(os.path.join(src_folder,filename))
