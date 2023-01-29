@@ -354,7 +354,7 @@ def image_process(img):
         #     img_file = os.path.join(pose_dir, folder+'_failed', 'failed_'+filename)
         # cv2.imwrite(img_file, image_debug)
 
-    return image_debug, jds_list, new_csv_row, correctness
+    return image_debug, jds_list, new_csv_row, correctness, pose_preds
     # # write csv
     # csv_headers = [ 'w','h', 'jd1', 'jd2','jd3','jd4','jd5','jd6','jd7','jd8','jd9','jd10']
     # if cfg.DATASET.DATASET_TEST == 'coco':
@@ -404,14 +404,28 @@ class JointAnalysis:
         if self.img_raw is None:
             print('frame dropped, skipping tracking')
         else:
-            image_debug, jds_list, csv_output_rows, correctness = image_process(self.img_raw)
+            ## TODO save csv_output_rows for training?
+            image_debug, jds_list, csv_output_rows, correctness, pose_pred = image_process(self.img_raw)
             # print(jds_list)
+
+            # [nose, left_eye, right_eye, left_ear, right_ear,
+            # left_shoulder, right_shoulder, left_elbow, right_elbow,
+            # left_wrist, right_wrist, left_hip, right_hip,
+            # left_knee, right_knee, left_ankle, right_ankle]
+            # print(pose_pred)
+
+
+
             self.jds_msg.data = jds_list
             if correctness:
                 # img = cv2.cvtColor(image_debug, cv2.COLOR_RGB2BGR)
                 msg_frame = CvBridge().cv2_to_imgmsg(image_debug, encoding="bgr8")
                 self.image_pub.publish(msg_frame)
                 self.jds_pub.publish(self.jds_msg)
+                self.two_joints_msg.data = [pose_pred[0][5,0],pose_pred[0][5,1],pose_pred[0][6,0], pose_pred[0][6,1],
+                            pose_pred[0][11,0], pose_pred[0][11,1], pose_pred[0][12,0], pose_pred[0][12,1]]
+                self.two_joints_pub.publish(self.two_joints_msg)
+
                 self.img_counter += 1
 
 
