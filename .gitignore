@@ -132,3 +132,6 @@ work_dirs/
 new_data_011423/*
 test_mp4s/*
 model.zip
+
+
+test_data/*
