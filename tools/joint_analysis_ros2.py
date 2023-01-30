@@ -70,6 +70,27 @@ COCO_KEYPOINT_INDEXES = {
     16: 'right_ankle'
 }
 
+## using 5 - 14
+COCO_KEYPOINT_INDEXES_SHORT = {
+    0: 'nose',
+    1: 'left_eye',
+    2: 'right_eye',
+    3: 'left_ear',
+    4: 'right_ear',
+    5: 'ls',
+    6: 'rs',
+    7: 'le',
+    8: 're',
+    9: 'lw',
+    10: 'rw',
+    11: 'lh',
+    12: 'rh',
+    13: 'lk',
+    14: 'rk',
+    15: 'left_ankle',
+    16: 'right_ankle'
+}
+
 class_dict = {'CE':0, 'JH':1, 'DK':2, 'CO':3, 'JZ':4, 'CK':5, 'JS':6, 'MF': 7, 'SS': 8}
 
 def prepare_output_dirs(prefix='/output/'):
@@ -283,11 +304,12 @@ def image_process(img):
 
         for coord_idx, coord in enumerate(coords):
             # print(COCO_KEYPOINT_INDEXES[coord_idx], coord_idx)
-            x_coord, y_coord = int(coord[0]), int(coord[1])
-            cv2.circle(image_debug, (x_coord, y_coord), 4, (0, 255, 0), 2)
-            cv2.putText(image_debug, COCO_KEYPOINT_INDEXES[coord_idx], (x_coord+10, y_coord+10), cv2.FONT_HERSHEY_SIMPLEX,
-                0.8, (0, 0, 255), 2, cv2.LINE_AA)
-            new_csv_coord_row.extend([x_coord, y_coord])
+            if coord_idx > 4 and coord_idx < 15:
+                x_coord, y_coord = int(coord[0]), int(coord[1])
+                cv2.circle(image_debug, (x_coord, y_coord), 4, (0, 255, 0), 2)
+                cv2.putText(image_debug, COCO_KEYPOINT_INDEXES_SHORT[coord_idx], (x_coord+10, y_coord+10), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.8, (0, 0, 255), 2, cv2.LINE_AA)
+                new_csv_coord_row.extend([x_coord, y_coord])
             
         
         # JOINT CONNECTIONS
