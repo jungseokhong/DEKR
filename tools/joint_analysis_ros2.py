@@ -482,6 +482,10 @@ class JointAnalysis:
                 1, (255, 255, 0), 2, cv2.LINE_AA)
                 # self.predict = ""
             
+            # Added for distance control
+            self.two_joints_msg.data = [pose_pred[0][5,0],pose_pred[0][5,1],pose_pred[0][6,0], pose_pred[0][6,1],
+                    pose_pred[0][11,0], pose_pred[0][11,1], pose_pred[0][12,0], pose_pred[0][12,1]]
+            self.two_joints_pub.publish(self.two_joints_msg)
             
             if correctness:
                 # img = cv2.cvtColor(image_debug, cv2.COLOR_RGB2BGR)
@@ -489,10 +493,6 @@ class JointAnalysis:
                 msg_frame = CvBridge().cv2_to_imgmsg(image_debug, encoding="bgr8")
                 self.image_pub.publish(msg_frame)
                 self.jds_pub.publish(self.jds_msg)
-                self.two_joints_msg.data = [pose_pred[0][5,0],pose_pred[0][5,1],pose_pred[0][6,0], pose_pred[0][6,1],
-                            pose_pred[0][11,0], pose_pred[0][11,1], pose_pred[0][12,0], pose_pred[0][12,1]]
-                self.two_joints_pub.publish(self.two_joints_msg)
-
                 self.img_counter += 1
             else:
                 msg_frame = CvBridge().cv2_to_imgmsg(self.img_raw, encoding="bgr8")
