@@ -42,6 +42,7 @@ from utils.transforms import up_interpolate
 
 from std_msgs.msg import Float64MultiArray
 from sensor_msgs.msg import Image
+from std_msgs.msg import String
 from cv_bridge import CvBridge, CvBridgeError
 import rospy
 import math
@@ -345,10 +346,10 @@ def image_process(img):
             jds_list.append( dist(right_hip, right_knee) )
 
 
-        total_then = time.time()
-        text = "{:03.2f} sec".format(total_then - total_now)
-        cv2.putText(image_debug, text, (100, 50), cv2.FONT_HERSHEY_SIMPLEX,
-                    1, (0, 0, 255), 2, cv2.LINE_AA)
+        # total_then = time.time()
+        # text = "{:03.2f} sec".format(total_then - total_now)
+        # cv2.putText(image_debug, text, (100, 50), cv2.FONT_HERSHEY_SIMPLEX,
+        #             1, (0, 0, 255), 2, cv2.LINE_AA)
         if correctness:
             new_csv_row = new_csv_row + jds_list + new_csv_coord_row
 
@@ -403,17 +404,36 @@ class JointAnalysis:
         self.bridge = CvBridge()
         # self.image_sub = rospy.Subscriber('/camera/image_raw', Image, self.imageCallBack, queue_size=3, buff_size=2**24)
         self.image_sub = rospy.Subscriber('/loco_cams/right/image_raw', Image, self.imageCallBack, queue_size=1, buff_size=2**24)
+        self.state_sub = rospy.Subscriber('/adroc_diver/state', String, self.stateCallBack, queue_size=1, buff_size=2**24)
+        self.label_sub = rospy.Subscriber('/adroc_diver/label', String, self.labelCallBack, queue_size=1, buff_size=2**24)
+        self.target_sub = rospy.Subscriber('/adroc_diver/target', String, self.targetCallBack, queue_size=1, buff_size=2**24)
+        self.predict_sub = rospy.Subscriber('/adroc_diver/predict', String, self.predictCallBack, queue_size=1, buff_size=2**24)
         self.image_pub = rospy.Publisher('/detection/output_image', Image, queue_size=1)
         self.jds_pub = rospy.Publisher('/detection/jds', Float64MultiArray, queue_size=1)
         self.two_joints_pub = rospy.Publisher('/detected_poses_keypoints', Float64MultiArray, queue_size=1)
 
         self.correctness = False
+        self.state = ""
+        self.label = ""
+        self.target = ""
+        self.predict = ""
 
         try:
             rospy.spin()
         except KeyboardInterrupt:
             print("Rospy shutting down.")
 
+    def stateCallBack(self, state_topic):
+        self.state = state_topic.data
+    
+    def labelCallBack(self, label_topic):
+        self.label = label_topic.data
+
+    def targetCallBack(self, target_topic):
+        self.target = target_topic.data
+
+    def predictCallBack(self, predict_topic):
+        self.predict = predict_topic.data
 
     def imageCallBack(self, img_topic):
         # print("INSIDE CALLBACK")
@@ -436,11 +456,36 @@ class JointAnalysis:
             # left_knee, right_knee, left_ankle, right_ankle]
             # print(pose_pred)
 
+            frame_height, frame_width, _ = self.img_raw.shape
 
 
             self.jds_msg.data = jds_list
+            
+            if self.state:
+                cv2.putText(self.img_raw, "Current State: "+self.state, (frame_width-550, frame_height-30), cv2.FONT_HERSHEY_SIMPLEX,
+                    1, (0, 191, 255), 2, cv2.LINE_AA)
+                cv2.putText(image_debug, "Current State: "+self.state, (frame_width-550, frame_height-30), cv2.FONT_HERSHEY_SIMPLEX,
+                    1, (0, 191, 255), 2, cv2.LINE_AA)
+
+            if self.label:
+                cv2.putText(image_debug, "Assigned Label: "+self.label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                1, (255, 255, 0), 2, cv2.LINE_AA)
+                self.label = ""
+            
+            if self.target:
+                cv2.putText(image_debug, "Target Diver: "+self.target, (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                1, (255, 255, 0), 2, cv2.LINE_AA)
+                # self.target = ""
+            
+            if self.predict:
+                cv2.putText(image_debug, "Predicted Diver: "+self.predict, (10, 60), cv2.FONT_HERSHEY_SIMPLEX,
+                1, (255, 255, 0), 2, cv2.LINE_AA)
+                # self.predict = ""
+            
+            
             if correctness:
                 # img = cv2.cvtColor(image_debug, cv2.COLOR_RGB2BGR)
+
                 msg_frame = CvBridge().cv2_to_imgmsg(image_debug, encoding="bgr8")
                 self.image_pub.publish(msg_frame)
                 self.jds_pub.publish(self.jds_msg)
@@ -449,6 +494,9 @@ class JointAnalysis:
                 self.two_joints_pub.publish(self.two_joints_msg)
 
                 self.img_counter += 1
+            else:
+                msg_frame = CvBridge().cv2_to_imgmsg(self.img_raw, encoding="bgr8")
+                self.image_pub.publish(msg_frame)
 
 
 if __name__ == '__main__':
