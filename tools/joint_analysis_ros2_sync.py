@@ -46,6 +46,7 @@ from std_msgs.msg import String
 from cv_bridge import CvBridge, CvBridgeError
 import rospy
 import math
+import message_filters
 
 CTX = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
@@ -439,7 +440,6 @@ class JointAnalysis:
         # print("INSIDE CALLBACK")
         try:
             self.img_raw = self.bridge.imgmsg_to_cv2(img_topic, "bgr8")
-            time_stamp = img_topic.header.stamp
             # print(self.img_raw)
         except CvBridgeError as e:
             print(e)
@@ -492,11 +492,8 @@ class JointAnalysis:
                 # img = cv2.cvtColor(image_debug, cv2.COLOR_RGB2BGR)
 
                 msg_frame = CvBridge().cv2_to_imgmsg(image_debug, encoding="bgr8")
-                msg_frame.header.stamp = time_stamp
-                msg_frame.header.frame_id = "pose"
                 self.image_pub.publish(msg_frame)
                 self.jds_pub.publish(self.jds_msg)
-
                 self.img_counter += 1
             else:
                 msg_frame = CvBridge().cv2_to_imgmsg(self.img_raw, encoding="bgr8")
