@@ -247,7 +247,8 @@ def image_process(img):
         count += 1
         # continue
         print("no pose detected")
-    print("Find person pose in: {} sec".format(then - now))                    
+    else:
+        print("Find person pose in: {} sec".format(then - now))                    
 
     new_csv_coord_row = []
     new_csv_row = [frame_width, frame_height]
@@ -484,9 +485,11 @@ class JointAnalysis:
                 # self.predict = ""
             
             # Added for distance control
-            self.two_joints_msg.data = [pose_pred[0][5,0],pose_pred[0][5,1],pose_pred[0][6,0], pose_pred[0][6,1],
-                    pose_pred[0][11,0], pose_pred[0][11,1], pose_pred[0][12,0], pose_pred[0][12,1]]
-            self.two_joints_pub.publish(self.two_joints_msg)
+            if pose_pred:
+                self.two_joints_msg.data = [pose_pred[0][5,0],pose_pred[0][5,1],pose_pred[0][6,0], pose_pred[0][6,1],
+                        pose_pred[0][11,0], pose_pred[0][11,1], pose_pred[0][12,0], pose_pred[0][12,1]]
+                self.two_joints_pub.publish(self.two_joints_msg)
+            
             
             if correctness:
                 # img = cv2.cvtColor(image_debug, cv2.COLOR_RGB2BGR)
